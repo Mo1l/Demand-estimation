@@ -20,7 +20,6 @@ class endog_data():
             unob_traits=np.random.multivariate_normal([0,0],cov, size = (f*j*T))
             #sigma, omega = np.maximum(0.0,unob_traits[:,0]).reshape(f*j,T), np.maximum(0.0,unob_traits[:,1]).reshape(f*j,T)  #Censoring at zero so marginal costs do not end up being negative
             sigma, omega = unob_traits[:,0].reshape(f*j,T), unob_traits[:,1].reshape(f*j,T)
-        #print(sigma.shape, omega.shape)
     
         return sigma, omega 
 
@@ -61,10 +60,12 @@ class endog_data():
         J = S.shape[0]
         
         Lamda = np.diag(alpha * S)
+        SS_T = S_v @ S_v.T
         
-        Gamma = (np.identity(J) - 1) * alpha * S_v.T @ S_v
+        Gamma = (np.identity(J) - 1) * alpha * SS_T
         
         dSdp = Lamda + Gamma    # -alpha * S**2
+
         
         return S, dSdp, Lamda, Gamma
 
@@ -103,36 +104,33 @@ class endog_data():
                 hadamard[i,not_f_prods] = 0
         return hadamard    
     
-    def decomposition_prices(self, f:int, mc: np.array, P:np.array, S, Lamda, Gamma, product_map, H):
-        """ Returns a set of prices given a supply scheme and marginal costs.
+    def decomposition_prices(self, f:int, mc: np.array, P:np.array, S, Lamda, Gamma, omega, product_map, H):
+        """ Returns a set of prices given a supply scheme and marginal costs. The Morrow and Skerlos (2010) "contraction" mapping is used. 
 
         Keyword arguments:
         f -- number of companies
         mc -- marginal costs
         S -- demand scheme (a set of product-specific traits should be given as input). 
         """
-
-        J = S.shape[0]
-        
-        # This step is actually only neccessary to do once. Consider doing that for added speed. 
-        #H = self.hadamard(J, product_map)
         
         Gamma_H =   H * Gamma
         Lamda_inv = inv(Lamda)
 
+
+
         Epsilon_func = Lamda_inv @ Gamma_H @(P - mc) - Lamda_inv @ S 
         
-        P = mc + Epsilon_func # (mc includes omega) I Think this is a problem since prices then adjust to unobserved factors. 
+        P = mc + Epsilon_func + omega 
 
         return P
 
 
-    def c_map(self, P, theta, X, mc, product_map, H, f, sigma):
+    def c_map(self, P, theta, X, mc, product_map, H, f, sigma, omega):
         # First step: Calculate market shares:
         S, dSdp, Lamda, Gamma = self.Consumer_demand(theta, X, P, sigma) 
         # Second step: Calculate new prices:
         try:
-            P = self.decomposition_prices(f, mc, P, S, Lamda, Gamma, product_map, H)
+            P = self.decomposition_prices(f, mc, P, S, Lamda, Gamma, omega, product_map, H)
             if (P < 0).any():
                 print("P is smaller than 0, drawing new starting values" , end="\r")
                 P = uniform(0.1,10, size = P.shape)
@@ -182,7 +180,7 @@ class endog_data():
 
     def sim_data(self, P, theta, X, mc, product_map, H, f, J, t=0):
         
-        c_map_l = lambda P: self.c_map(P, theta, X, mc, product_map, H, f, self.sigma[:,t])
+        c_map_l = lambda P: self.c_map(P, theta, X, mc, product_map, H, f, self.sigma[:,t], self.omega[:,t])
 
 
         # record keeping:
@@ -232,7 +230,7 @@ class endog_data():
         for t in tqdm(range(T), disable = disable): 
             inv_true = False
             while not inv_true: 
-                P[:,t],S[:,t], inv_true=self.sim_data(P0, theta, X, mc[:,t], product_map, H, f, j, t)
+                P[:,t], S[:,t], inv_true=self.sim_data(P0, theta, X, mc, product_map, H, f, j, t)
                 P0 = uniform(0.1,10, size = (f*j))
 
         return P, S 
@@ -259,8 +257,8 @@ class endog_data():
         if use_X != "Yes": 
             mc = gamma + eps 
         else: 
-            mc = (X@gamma).reshape(J,-1) + self.omega # + eps #+ np.broadcast_to(self.omega.reshape(-1,1), (J,T))
-            #JxT #Jxk#kx1 + #JxT
+            mc = (X@gamma).reshape(J) #+ self.omega # + eps #+ np.broadcast_to(self.omega.reshape(-1,1), (J,T))
+            #J
 
         return mc
 
