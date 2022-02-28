@@ -18,7 +18,7 @@ class endog_data():
         if cov is None:
             sigma, omega = 0, 0 
         else: 
-            unob_traits=np.random.multivariate_normal([1,1],cov, size = (f*j*T))
+            unob_traits=np.random.multivariate_normal([0,0],cov, size = (f*j*T))
             #sigma, omega = np.maximum(0.0,unob_traits[:,0]).reshape(f*j,T), np.maximum(0.0,unob_traits[:,1]).reshape(f*j,T)  #Censoring at zero so marginal costs do not end up being negative
             sigma, omega = unob_traits[:,0].reshape(f*j,T), unob_traits[:,1].reshape(f*j,T)
     
@@ -60,6 +60,7 @@ class endog_data():
         # deriving own-price and cross-price derivatives 
         J = S.shape[0]
         
+        #print(S_v.shape)
         Lamda = np.diag(alpha * S)
         SS_T = S_v @ S_v.T
         
