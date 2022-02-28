@@ -1,4 +1,5 @@
 
+from cmath import inf
 import numpy as np
 from numpy.random import uniform
 from numpy.linalg import inv, det
@@ -129,16 +130,16 @@ class endog_data():
         # First step: Calculate market shares:
         S, dSdp, Lamda, Gamma = self.Consumer_demand(theta, X, P, sigma) 
         # Second step: Calculate new prices:
-        try:
-            P = self.decomposition_prices(f, mc, P, S, Lamda, Gamma, omega, product_map, H)
-            if (P < 0).any():
-                print("P is smaller than 0, drawing new starting values" , end="\r")
-                P = uniform(0.1,10, size = P.shape)
-        except np.linalg.LinAlgError:
-            # If any singular matrix error occur then try with different starting values and pray. 
-            print("Singular matrix - trying to recalibrate ...")
+        #try:
+        P = self.decomposition_prices(f, mc, P, S, Lamda, Gamma, omega, product_map, H)
+        if (P < 0).any():
+            print("P is smaller than 0, drawing new starting values" , end="\r")
             P = uniform(0.1,10, size = P.shape)
-            P = self.c_map(P, theta, X, mc, product_map, H, f, sigma)
+        #except np.linalg.LinAlgError:
+            # If any singular matrix error occur then try with different starting values and pray. 
+            #print("Singular matrix - trying to recalibrate ...")
+            #P = uniform(0.1,10, size = P.shape)
+            #P = self.c_map(P, theta, X, mc, product_map, H, f, sigma)
 
         #P = P.reshape((f,-1))
         return P
