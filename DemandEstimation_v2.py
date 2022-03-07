@@ -4,6 +4,7 @@ import numpy as np
 from numpy.random import uniform
 from numpy.linalg import inv, det
 from tqdm.notebook import tqdm
+from statsmodels.regression.linear_model import OLS 
 
 
 
@@ -264,6 +265,72 @@ class endog_data():
             #J
 
         return mc
+
+
+# Estimation related functions: 
+
+    def first_step_IV(self, y,dims):
+        """
+        Given a dataset regress parameters with a dummy in each market for each alternative. 
+        """
+
+        # Unpacking: 
+        f, j, t = dims
+
+        #Dum = np.array([np.identity(f*j) for i in range(t)]).reshape(-1,f*j*t)
+        Dum = np.identity(f*j*t)
+        
+        model = OLS(y,Dum).fit()
+
+        return model.params, Dum
+
+    def second_step_IV(self, y_dum, X, prod, dims):
+
+        ZS = self.blp_instruments(X, prod, dims)
+
+        model = OLS(y_dum,ZS)
+    
+        return model.params
+
+
+# BLP-like Instruments: 
+    def blp_instruments(self, X, prod, dims):
+        """
+        Constructs BLP like instruments. 
+        """
+
+        #Unpack 
+        f,j,T = dims
+
+        check = np.array(np.arange(j*f))
+        Z = []
+        for firm, js in prod.items():
+            not_f_prods=[j for j in check if j not in js ]
+
+            Z_i = X[not_f_prods,:].mean(axis=0)   #(k,)
+                        #print("shape of Z_i",Z_i.shape)
+
+            Z.append(Z_i)
+
+        Z = np.array(Z)                            #(f,k)
+        #print("shape of Z:", Z.shape)
+        ZZ = Z.repeat(T*j, axis=0)                 #(T*f*j,k)
+
+        # This will not work since it is looking at a firm level. But I need to create j instruments for each firm. 
+        S = []
+        for firm, cs in prod.items():
+            for c in cs: 
+                same_firm_not_j_prods=[i for i in cs if i != c]
+                S_i=X[same_firm_not_j_prods,:].mean(axis=0)
+
+                S.append(S_i)
+        S =np.array(S)
+        SS = S.repeat(T, axis=0)
+        ZS = np.hstack((ZZ, SS))
+        print(ZS.shape)
+            
+
+        return ZS
 
 
     
