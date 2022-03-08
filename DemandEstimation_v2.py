@@ -135,7 +135,7 @@ class endog_data():
         #try:
         P = self.decomposition_prices(f, mc, P, S, Lamda, Gamma, omega, product_map, H)
         if (P < 0).any():
-            print("P is smaller than 0, drawing new starting values" , end="\r")
+            #print("P is smaller than 0, drawing new starting values" , end="\r")
             P = uniform(0.1,10, size = P.shape)
         #except np.linalg.LinAlgError:
             # If any singular matrix error occur then try with different starting values and pray. 
@@ -268,6 +268,33 @@ class endog_data():
 
 
 # Estimation related functions: 
+    def blp_regression(self, y, P, X, product_map, dims):
+        """
+        Returns parameter estimates based on BLP approach ie. using BLP instruments
+        to get a consistent estimate of parameters.
+        """
+
+        _,_,T = dims
+
+        # Getting delta constants consistent with estimation
+        y_const, _=self.first_step_IV(y, dims)
+
+        # Constructing BLP instruments
+        ZS = self.blp_instruments(X, product_map, dims)
+
+        # Using instruments to get E[P] of prices
+        step2=OLS(P.reshape(-1,1), ZS).fit()
+        preds=ZS @step2.params 
+
+        # stacking explanatory variables
+        step3vars = np.hstack((preds.reshape(-1,1), X.repeat(T, axis=0)))
+
+        # regressing the constants on exp vars
+        params = OLS(y_const, step3vars).fit().params
+        
+        return params
+
+
 
     def first_step_IV(self, y,dims):
         """
@@ -284,13 +311,6 @@ class endog_data():
 
         return model.params, Dum
 
-    def second_step_IV(self, y_dum, X, prod, dims):
-
-        ZS = self.blp_instruments(X, prod, dims)
-
-        model = OLS(y_dum,ZS)
-    
-        return model.params
 
 
 # BLP-like Instruments: 
@@ -327,7 +347,6 @@ class endog_data():
         S =np.array(S)
         SS = S.repeat(T, axis=0)
         ZS = np.hstack((ZZ, SS))
-        print(ZS.shape)
             
 
         return ZS
