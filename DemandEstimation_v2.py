@@ -317,11 +317,14 @@ class endog_data():
     def blp_instruments(self, X, prod, dims):
         """
         Constructs BLP like instruments. 
+
+        WARNING: X is missing from these Instruments.
         """
 
         #Unpack 
         f,j,T = dims
 
+        # Same-firm instruments
         check = np.array(np.arange(j*f))
         Z = []
         for firm, js in prod.items():
@@ -336,7 +339,12 @@ class endog_data():
         #print("shape of Z:", Z.shape)
         ZZ = Z.repeat(T*j, axis=0)                 #(T*f*j,k)
 
-        # This will not work since it is looking at a firm level. But I need to create j instruments for each firm. 
+        # Traits as instruments. 
+        XX = X.repeat(T,axis=0)
+
+        # Traits as instruments: 
+
+        # Different firm instruments. 
         S = []
         for firm, cs in prod.items():
             for c in cs: 
@@ -344,9 +352,10 @@ class endog_data():
                 S_i=X[same_firm_not_j_prods,:].mean(axis=0)
 
                 S.append(S_i)
-        S =np.array(S)
+        S = np.array(S)
         SS = S.repeat(T, axis=0)
-        ZS = np.hstack((ZZ, SS))
+        ZS = np.hstack((XX,ZZ, SS))
+        
             
 
         return ZS
