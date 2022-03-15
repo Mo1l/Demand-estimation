@@ -63,7 +63,7 @@ class endog_data():
         
         #print(S_v.shape)
         Lamda = np.diag(alpha * S)
-        SS_T = S_v @ S_v.T
+        SS_T = S_v @ S_v.T          # This one scales J^2 
         
         Gamma = (np.identity(J) - 1) * alpha * SS_T
         
